@@ -209,3 +209,10 @@ DeepGuard produces **probabilistic estimates**, not legal proof. All results sho
 ## 📜 Licence
 
 MIT — Free for research, education, and non-commercial use.
+
+## Support Development
+
+This project is free and open source. If you find it useful, you can support continued development through:
+
+- [GitHub Sponsors](https://github.com/sponsors/anshdeepofficial)
+- [Buy Me a Coffee](https://buymeacoffee.com/anshdeepofficial)
