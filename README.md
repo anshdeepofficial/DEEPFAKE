@@ -1,4 +1,8 @@
-# 🛡️ DeepGuard — Multimodal Deepfake & Fake-News Detector`n`n<p align="center">`n  <a href="https://github.com/sponsors/anshdeepofficial"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" height="40" /></a>`n  <a href="https://buymeacoffee.com/anshdeepofficial"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="40" /></a>`n</p>
+# 🛡️ DeepGuard — Multimodal Deepfake & Fake-News Detector
+<p align="center">
+  <a href="https://github.com/sponsors/anshdeepofficial"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" height="40" /></a>
+  <a href="https://buymeacoffee.com/anshdeepofficial"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="40" /></a>
+</p>
 
 > **AI-powered forensic platform to stop digital fraud and fake news**  
 > Detects deepfakes in **images, videos, audio** and identifies **fake news** in text — installable as a **Progressive Web App (PWA)** on any device.
