@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -96,9 +96,41 @@ def _check_content_type(ct: str | None, allowed: set[str]):
         raise HTTPException(415, f"Unsupported media type: {ct}")
 
 
-@app.get("/", include_in_schema=False)
+def _homepage_html() -> str:
+    """Serve the legacy UI with truthful v1.1 copy without duplicating the page."""
+    page = (_static_dir / "index.html").read_text(encoding="utf-8")
+    replacements = {
+        "DeepGuard – Deepfake & Fake-News Detector": "DeepGuard – Media Forensics & Claim Verification",
+        "AI-powered deepfake and fake-news detection. Analyse images, videos, audio and text for synthetic manipulation.": "Evidence-assisted media forensics and live web claim verification for images, video, audio and text.",
+        "Multimodal AI-powered forensic analysis to stop fraud and fake news.": "Multimodal forensic signals plus source-backed public-web claim verification.",
+        "v1.0 – Research Edition": "v1.1 – Research Edition",
+        "AI-Powered Detection": "Evidence-Assisted Detection",
+        "📰 Text / News": "📰 Text Signals",
+        "Paste a news headline, article, social media post, or any text you want to verify for authenticity...": "Paste text to inspect writing-risk signals. For factual verification, use Verify Claim.",
+        "Analyse Text": "Analyse Writing Signals",
+        "NLP Credibility Scoring": "Text Risk Signals",
+        "and structural red-flags are combined to produce a fake-news\n           probability score.": "and structural red-flags are combined into an explainable writing-risk\n           indicator. Writing style alone cannot prove a factual claim true or false.",
+        "The platform operates entirely locally — no content is uploaded to\n         third-party servers — ensuring privacy and making it suitable for\n         sensitive investigations.": "Uploaded media is processed by your DeepGuard server and is not forwarded to third-party AI services by the core detectors.\n         Claim verification sends the claim text to a public search provider to retrieve evidence.",
+        "✅ No cloud dependency — runs 100 % on-device": "✅ Self-hostable backend with transparent REST API",
+        "https://github.com/Ansh200618/DEEPFAKE": "https://github.com/anshdeepofficial/DEEPFAKE",
+    }
+    for old, new in replacements.items():
+        page = page.replace(old, new)
+    page = page.replace(
+        '<a href="/api/docs"  class="nav-link" target="_blank">API Docs</a>',
+        '<a href="/verify" class="nav-link">Verify Claim</a>\n      <a href="/api/docs" class="nav-link" target="_blank">API Docs</a>',
+    )
+    return page
+
+
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
 async def index():
-    return FileResponse(str(_static_dir / "index.html"))
+    return HTMLResponse(_homepage_html())
+
+
+@app.get("/verify", include_in_schema=False)
+async def verify_page():
+    return FileResponse(str(_static_dir / "verify.html"))
 
 
 @app.get("/offline.html", include_in_schema=False)
