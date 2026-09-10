@@ -1,215 +1,98 @@
-# 🛡️ DeepGuard — Multimodal Deepfake & Fake-News Detector
-<p align="center">
-  <a href="https://github.com/sponsors/anshdeepofficial"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" height="40" /></a>
-  <a href="https://buymeacoffee.com/anshdeepofficial"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="40" /></a>
-</p>
+<div align="center">
 
-> **AI-powered forensic platform to stop digital fraud and fake news**  
-> Detects deepfakes in **images, videos, audio** and identifies **fake news** in text — installable as a **Progressive Web App (PWA)** on any device.
+# 🛡️ DeepGuard
+
+**Multimodal deepfake & fake-news analysis for images, video, audio, and text.**
+
+![Python](https://img.shields.io/badge/Python-Backend-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-34%20Passing-16A34A?style=for-the-badge)
+
+<a href="https://github.com/sponsors/anshdeepofficial"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+<a href="https://buymeacoffee.com/anshdeepofficial"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000" alt="Buy Me a Coffee" /></a>
+
+</div>
 
 ---
+
+## ✨ Overview
+
+DeepGuard is an AI-assisted forensic platform that analyzes multiple media types for suspicious manipulation signals. It combines image, video, audio, and text analysis behind a FastAPI backend and an installable Progressive Web App interface.
+
+> **Important:** Results are probabilistic indicators, not legal proof. Human review is recommended for important decisions.
+
+## 🔬 Detection Modes
+
+| Input | Analysis Focus |
+| --- | --- |
+| 🖼️ Image | ELA, DCT/frequency patterns, noise residuals, face consistency |
+| 🎬 Video | Frame analysis, optical flow, blink and face consistency signals |
+| 🎙️ Audio | MFCC, spectral characteristics, pitch consistency, silence patterns |
+| 📰 Text | Structural, readability, emotional, and clickbait-style indicators |
 
 ## 📸 Screenshots
 
-| Home / Hero | Result — FAKE Verdict |
-|---|---|
+| Home | Detection Result |
+| --- | --- |
 | ![Home](screenshots/screenshot_home.png) | ![Result](screenshots/screenshot_result_fake.png) |
 
-| Text / News Analysis | Mobile PWA |
-|---|---|
+| Text Analysis | Mobile PWA |
+| --- | --- |
 | ![Text](screenshots/screenshot_text_analysis.png) | ![Mobile](screenshots/screenshot_mobile.png) |
-
----
-
-## 🔬 Research Paper
-
-A comprehensive **20-page academic research paper** is included:  
-📄 **[DeepGuard_Research_Paper.docx](DeepGuard_Research_Paper.docx)**
-
-Covers: Abstract · Introduction · Background · Threat Landscape · System Architecture · Detection Methodologies · Implementation · Experimental Results · Discussion · Ethics · Conclusion · 24 References · 6 Appendices.
-
----
-
-## 🎯 What It Detects
-
-| Modality | Techniques | Threat |
-|---|---|---|
-| 🖼️ **Image** | ELA, DCT fingerprint, noise residual, face consistency | GAN portraits, spliced photos |
-| 🎬 **Video** | Per-frame analysis, optical flow, blink rate, face ratio | Face-swap, lip-sync deepfakes |
-| 🎙️ **Audio** | MFCC variance, spectral flatness, F0 consistency, silence ratio | Voice cloning, TTS fraud |
-| 📰 **Text/News** | Clickbait score, readability, factual density, emotion, structure | Fake news, AI-written propaganda |
-
----
 
 ## 🚀 Quick Start
 
-### 1. Clone & Install
 ```bash
-git clone https://github.com/Ansh200618/DEEPFAKE
+git clone https://github.com/anshdeepofficial/DEEPFAKE.git
 cd DEEPFAKE
 pip install -r requirements.txt
-```
-
-### 2. Run the server
-```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Open the app
-Visit **http://localhost:8000** — the PWA install prompt will appear.
+Then open `http://localhost:8000` in your browser.
 
----
+## 🛠️ Stack
 
-## 📱 PWA Installation
+- **Backend:** Python + FastAPI
+- **Frontend:** HTML, CSS, JavaScript
+- **App model:** Progressive Web App
+- **Testing:** Pytest
+- **Deployment options:** Docker and Linux systemd scripts included
 
-Once the server is running, install DeepGuard as a native app:
+## 🔌 API
 
-- **Desktop (Chrome/Edge):** Click the `⊕` install icon in the address bar
-- **Android:** Menu → *Add to Home Screen* / *Install App*
-- **iOS Safari:** Share → *Add to Home Screen*
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/health` | GET | Service health |
+| `/api/detect/image` | POST | Image analysis |
+| `/api/detect/video` | POST | Video analysis |
+| `/api/detect/audio` | POST | Audio analysis |
+| `/api/detect/text` | POST | Text/news analysis |
+| `/api/docs` | GET | Swagger documentation |
 
-DeepGuard will appear in your system app launcher with its shield icon, running in standalone mode with offline support.
+## 📄 Research Paper
 
----
+A detailed research document is included in the repository as **`DeepGuard_Research_Paper.docx`**, covering the system architecture, detection methodologies, implementation, experiments, ethics, and references.
 
-## 🔧 Permanent Installation (Linux Systemd)
-
-```bash
-sudo bash install.sh
-```
-
-This will:
-- Create a `deepguard` system user
-- Install dependencies in an isolated virtualenv at `/opt/deepguard`
-- Register and start `deepguard.service` (auto-starts on boot)
-- Open firewall port 8000 (if `ufw` is present)
-
-```bash
-# Status / control
-systemctl status deepguard
-systemctl stop   deepguard
-systemctl start  deepguard
-
-# Logs
-tail -f /var/log/deepguard/access.log
-tail -f /var/log/deepguard/error.log
-
-# Uninstall
-sudo bash uninstall.sh
-```
-
----
-
-## 🐳 Docker
-
-```bash
-docker build -t deepguard:latest .
-docker run -d -p 8000:8000 --name deepguard deepguard:latest
-# Or:
-docker-compose up -d
-```
-
----
-
-## 🧪 Running Tests
+## 🧪 Testing
 
 ```bash
 pytest tests/ -v
 ```
 
-**34 tests, 0 failures** across all detectors and API endpoints.
+The repository currently documents **34 passing tests** across detectors and API behavior.
+
+## 🤝 Contributing
+
+Contributions are welcome, especially around reproducible evaluation, stronger detection methods, test coverage, explainability, and responsible-use documentation.
+
+## ⚖️ Disclaimer
+
+DeepGuard should be treated as a research and awareness tool. Detection scores can produce false positives or false negatives and should not be used as the sole basis for legal, disciplinary, financial, or safety-critical decisions.
 
 ---
 
-## 🔌 REST API
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/health` | GET | Health check |
-| `/api/detect/image` | POST | Analyse image (multipart) |
-| `/api/detect/audio` | POST | Analyse audio (multipart) |
-| `/api/detect/video` | POST | Analyse video (multipart) |
-| `/api/detect/text` | POST | Analyse text (JSON) |
-| `/api/docs` | GET | Swagger UI |
-| `/api/redoc` | GET | ReDoc |
-
-### Example
-```bash
-# Analyse an image
-curl -X POST http://localhost:8000/api/detect/image \
-  -F "file=@suspect.jpg"
-
-# Analyse text
-curl -X POST http://localhost:8000/api/detect/text \
-  -H "Content-Type: application/json" \
-  -d '{"text": "SHOCKING! Government hiding cancer cure — share before deleted!!"}'
-```
-
-### Response Schema
-```json
-{
-  "label":      "FAKE",
-  "confidence": 78.42,
-  "score":      0.7842,
-  "details": {
-    "ela": 0.6821,
-    "frequency": 0.7214,
-    "noise": 0.5533,
-    "face_consistency": 0.4112
-  },
-  "flags": [
-    "High ELA variance – possible splicing or re-encoding",
-    "Anomalous frequency spectrum – GAN fingerprint detected"
-  ]
-}
-```
-
----
-
-## 📁 Project Structure
-
-```
-DEEPFAKE/
-├── app/
-│   ├── main.py                    # FastAPI application
-│   ├── detectors/
-│   │   ├── image_detector.py      # ELA + DCT + noise + face analysis
-│   │   ├── audio_detector.py      # MFCC + pitch + spectral analysis
-│   │   ├── video_detector.py      # Optical flow + blink + per-frame
-│   │   └── text_detector.py       # NLP fake-news scoring
-│   ├── utils/
-│   │   └── helpers.py             # DetectionResult, scoring utilities
-│   └── static/
-│       ├── index.html             # PWA web UI
-│       ├── manifest.json          # PWA manifest
-│       ├── sw.js                  # Service worker (offline + cache)
-│       ├── offline.html           # Offline fallback page
-│       ├── css/style.css          # Professional dark theme
-│       ├── js/app.js              # Frontend logic + SW registration
-│       └── icons/                 # All PWA icon sizes (72–512px)
-├── tests/
-│   ├── test_image_detector.py
-│   ├── test_audio_detector.py
-│   ├── test_video_detector.py
-│   └── test_api.py
-├── screenshots/                   # App screenshots
-├── DeepGuard_Research_Paper.docx  # Full research paper (20 pages)
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── deepguard.service              # Systemd unit file
-├── install.sh                     # Permanent install script
-└── uninstall.sh                   # Uninstall script
-```
-
----
-
-## ⚠️ Disclaimer
-
-DeepGuard produces **probabilistic estimates**, not legal proof. All results should be reviewed by a qualified human expert before taking any action. The tool is intended for research, journalism, and awareness purposes.
-
----
-
-## 📜 Licence
-
-MIT — Free for research, education, and non-commercial use.
+<div align="center">
+Research project by <a href="https://github.com/anshdeepofficial">Anshdeep Singh</a>
+</div>
