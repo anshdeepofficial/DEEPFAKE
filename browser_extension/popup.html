@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DeepGuard Verify</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark">DG</div>
+      <div>
+        <h1>DeepGuard Verify</h1>
+        <p>Check selected claims against live web evidence.</p>
+      </div>
+    </header>
+
+    <section class="card settings">
+      <label for="api-url">DeepGuard server</label>
+      <div class="row">
+        <input id="api-url" type="url" placeholder="http://localhost:8000" />
+        <button id="save-url" class="secondary">Save</button>
+      </div>
+      <small id="server-state">Default: local server</small>
+    </section>
+
+    <section class="actions">
+      <button id="verify-selection" class="primary">Verify selected text</button>
+      <button id="verify-page" class="secondary full">Find a claim on this page</button>
+    </section>
+
+    <section id="status" class="status hidden"></section>
+    <section id="result" class="card hidden">
+      <div class="result-top">
+        <span id="verdict" class="verdict">—</span>
+        <span id="confidence" class="confidence"></span>
+      </div>
+      <p id="claim" class="claim"></p>
+      <div id="counts" class="counts"></div>
+      <div id="evidence" class="evidence"></div>
+      <p class="fineprint">DeepGuard shows evidence assistance, not legal proof. Open the sources before relying on a verdict.</p>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

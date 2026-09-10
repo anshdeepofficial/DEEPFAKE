@@ -1,7 +1,7 @@
 [Unit]
-Description=DeepGuard – Multimodal Deepfake & Fake-News Detector
-Documentation=https://github.com/Ansh200618/DEEPFAKE
-After=network.target
+Description=DeepGuard – Multimodal Forensic Analysis and Claim Verification
+Documentation=https://github.com/anshdeepofficial/DEEPFAKE
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -9,16 +9,19 @@ Type=simple
 User=deepguard
 Group=deepguard
 WorkingDirectory=/opt/deepguard
-ExecStart=/opt/deepguard/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+ExecStart=/opt/deepguard/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 Restart=always
 RestartSec=5
 StandardOutput=append:/var/log/deepguard/access.log
 StandardError=append:/var/log/deepguard/error.log
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/deepguard
+Environment=DEEPGUARD_MAX_UPLOAD_MB=50
+Environment=DEEPGUARD_RATE_LIMIT_PER_MIN=30
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
+ProtectHome=yes
 ReadWritePaths=/var/log/deepguard
 
 [Install]

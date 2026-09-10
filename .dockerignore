@@ -1,0 +1,11 @@
+.git
+.github
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+tests
+screenshots
+DeepGuard_Research_Paper.docx
+*.log

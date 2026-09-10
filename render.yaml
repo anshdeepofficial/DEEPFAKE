@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: deepguard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: DEEPGUARD_MAX_UPLOAD_MB
+        value: "50"
+      - key: DEEPGUARD_RATE_LIMIT_PER_MIN
+        value: "30"
+      - key: DEEPGUARD_SEARCH_TIMEOUT
+        value: "8"

@@ -1,76 +1,46 @@
 #!/usr/bin/env bash
-# ════════════════════════════════════════════════════════════════
-# DeepGuard – Installation Script
-# Installs DeepGuard as a permanent systemd service on Linux.
-# Usage: sudo bash install.sh
-# ════════════════════════════════════════════════════════════════
+# DeepGuard permanent Linux installer
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="deepguard"
 INSTALL_DIR="/opt/deepguard"
 VENV_DIR="${INSTALL_DIR}/venv"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 LOG_DIR="/var/log/deepguard"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 APP_PORT="${DEEPGUARD_PORT:-8000}"
 APP_USER="${DEEPGUARD_USER:-deepguard}"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Colours ──────────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
-info()  { echo -e "${BLUE}[INFO]${NC}  $*"; }
-ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-err()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
+fail() { echo "[DeepGuard] ERROR: $*" >&2; exit 1; }
+info() { echo "[DeepGuard] $*"; }
 
-# ── Pre-checks ────────────────────────────────────────────────────────────────
-[[ $EUID -ne 0 ]] && err "Please run as root: sudo bash install.sh"
-command -v python3 >/dev/null 2>&1 || err "python3 not found. Install Python 3.9+."
-command -v pip3    >/dev/null 2>&1 || err "pip3 not found."
+[[ ${EUID} -eq 0 ]] || fail "Run with sudo: sudo bash install.sh"
+command -v python3 >/dev/null 2>&1 || fail "python3 is required"
+command -v systemctl >/dev/null 2>&1 || fail "systemd is required"
+[[ -d "${SOURCE_DIR}/app" ]] || fail "app/ directory not found"
+[[ -f "${SOURCE_DIR}/requirements.txt" ]] || fail "requirements.txt not found"
 
-PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-info "Python version: ${PYTHON_VERSION}"
-
-echo -e "\n${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BOLD}   🛡️  DeepGuard Installer${NC}"
-echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-
-# ── Create system user ────────────────────────────────────────────────────────
-if ! id "${APP_USER}" &>/dev/null; then
-    info "Creating system user '${APP_USER}'…"
-    useradd --system --no-create-home --shell /usr/sbin/nologin "${APP_USER}"
-    ok "User '${APP_USER}' created"
-else
-    ok "User '${APP_USER}' already exists"
+if ! id "${APP_USER}" >/dev/null 2>&1; then
+  useradd --system --no-create-home --shell /usr/sbin/nologin "${APP_USER}"
 fi
 
-# ── Copy application files ────────────────────────────────────────────────────
-info "Installing application to ${INSTALL_DIR}…"
-mkdir -p "${INSTALL_DIR}"
-cp -r "${APP_DIR}/app"           "${INSTALL_DIR}/"
-cp    "${APP_DIR}/requirements.txt" "${INSTALL_DIR}/"
-chown -R "${APP_USER}:${APP_USER}" "${INSTALL_DIR}"
-ok "Application files copied"
+info "Installing application in ${INSTALL_DIR}"
+mkdir -p "${INSTALL_DIR}" "${LOG_DIR}"
+rm -rf "${INSTALL_DIR}/app"
+cp -a "${SOURCE_DIR}/app" "${INSTALL_DIR}/app"
+cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
 
-# ── Create log directory ──────────────────────────────────────────────────────
-mkdir -p "${LOG_DIR}"
-chown "${APP_USER}:${APP_USER}" "${LOG_DIR}"
+python3 -m venv "${VENV_DIR}" || fail "python3-venv is required on this Linux distribution"
+"${VENV_DIR}/bin/python" -m pip install --upgrade pip
+"${VENV_DIR}/bin/pip" install -r "${INSTALL_DIR}/requirements.txt"
 
-# ── Create virtual environment ────────────────────────────────────────────────
-info "Creating Python virtual environment at ${VENV_DIR}…"
-python3 -m venv "${VENV_DIR}"
-"${VENV_DIR}/bin/pip" install --upgrade pip -q
-info "Installing Python dependencies (this may take a few minutes)…"
-"${VENV_DIR}/bin/pip" install -r "${INSTALL_DIR}/requirements.txt" -q
-ok "Dependencies installed"
+chown -R "${APP_USER}:${APP_USER}" "${INSTALL_DIR}" "${LOG_DIR}"
 
-# ── Write systemd unit file ───────────────────────────────────────────────────
-info "Writing systemd service unit to ${SERVICE_FILE}…"
-cat > "${SERVICE_FILE}" <<EOF
+cat > "${SERVICE_FILE}" <<SERVICE
 [Unit]
-Description=DeepGuard – Multimodal Deepfake & Fake-News Detector
-Documentation=https://github.com/Ansh200618/DEEPFAKE
-After=network.target
+Description=DeepGuard – Multimodal Forensic Analysis and Claim Verification
+Documentation=https://github.com/anshdeepofficial/DEEPFAKE
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -78,46 +48,44 @@ Type=simple
 User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=${VENV_DIR}/bin/uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT} --workers 2
+ExecStart=${VENV_DIR}/bin/uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT} --workers 1
 Restart=always
 RestartSec=5
 StandardOutput=append:${LOG_DIR}/access.log
 StandardError=append:${LOG_DIR}/error.log
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=${INSTALL_DIR}
+Environment=DEEPGUARD_MAX_UPLOAD_MB=${DEEPGUARD_MAX_UPLOAD_MB:-50}
+Environment=DEEPGUARD_RATE_LIMIT_PER_MIN=${DEEPGUARD_RATE_LIMIT_PER_MIN:-30}
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
+ProtectHome=yes
 ReadWritePaths=${LOG_DIR}
 
 [Install]
 WantedBy=multi-user.target
-EOF
-ok "Service unit written"
+SERVICE
 
-# ── Enable and start ──────────────────────────────────────────────────────────
-info "Enabling and starting DeepGuard service…"
 systemctl daemon-reload
-systemctl enable  "${SERVICE_NAME}"
+systemctl enable "${SERVICE_NAME}"
 systemctl restart "${SERVICE_NAME}"
 
-# ── Open firewall (optional) ──────────────────────────────────────────────────
-if command -v ufw &>/dev/null; then
-    info "Opening port ${APP_PORT} in ufw…"
-    ufw allow "${APP_PORT}/tcp" >/dev/null 2>&1 && ok "ufw rule added"
-fi
-
-# ── Status check ─────────────────────────────────────────────────────────────
 sleep 2
-if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    ok "DeepGuard is running!"
+if "${VENV_DIR}/bin/python" - <<PY
+import urllib.request
+urllib.request.urlopen("http://127.0.0.1:${APP_PORT}/api/health", timeout=5).read()
+PY
+then
+  info "DeepGuard is healthy at http://127.0.0.1:${APP_PORT}"
 else
-    warn "Service may not have started. Check: journalctl -u ${SERVICE_NAME} -n 30"
+  systemctl --no-pager --full status "${SERVICE_NAME}" || true
+  fail "Service started but health check failed. See ${LOG_DIR}/error.log"
 fi
 
-echo -e "\n${BOLD}${GREEN}✅  Installation complete!${NC}"
-echo -e "   App URL : ${BOLD}http://localhost:${APP_PORT}${NC}"
-echo -e "   Logs    : ${BOLD}${LOG_DIR}/${NC}"
-echo -e "   Status  : ${BOLD}systemctl status ${SERVICE_NAME}${NC}"
-echo -e "   Stop    : ${BOLD}systemctl stop ${SERVICE_NAME}${NC}"
-echo -e "   Remove  : ${BOLD}sudo bash uninstall.sh${NC}\n"
+if [[ "${DEEPGUARD_OPEN_FIREWALL:-0}" == "1" ]] && command -v ufw >/dev/null 2>&1; then
+  ufw allow "${APP_PORT}/tcp"
+  info "UFW port ${APP_PORT}/tcp opened because DEEPGUARD_OPEN_FIREWALL=1"
+else
+  info "Firewall was not changed automatically. Open port ${APP_PORT} only if you intentionally expose this server."
+fi
