@@ -1,19 +1,38 @@
 # DeepGuard Verify browser extension
 
-Manifest V3 extension for Chromium browsers. It reads only the active tab after
-the user clicks the extension, then sends either the selected sentence or a
-bounded slice of visible page text to your DeepGuard `/api/verify/claim` endpoint.
+A Manifest V3 extension for Chrome/Edge that sends a user-selected factual claim
+(or a bounded section of visible article text) to a DeepGuard server and renders
+source-backed evidence.
 
-## Load locally
+## Local install
 
-1. Start DeepGuard on `http://localhost:8000` or deploy it.
-2. Open `chrome://extensions` (or the equivalent extensions page in Edge/Brave).
+1. Run or deploy DeepGuard.
+2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
-4. Choose **Load unpacked** and select the `browser_extension` folder.
+4. Choose **Load unpacked** and select this `browser_extension` folder.
 5. Pin **DeepGuard Verify**.
-6. On an article, select a factual sentence and click **Verify selected text**.
+6. Open the popup, enter your DeepGuard server URL, and click **Save**.
+7. The extension performs a health check before saving the server.
 
-For an HTTPS production server, paste the server URL in the popup and press
-**Save**. Chrome will ask for permission only for that configured server origin.
-The extension uses `activeTab` + `scripting`, so it does not need permanent read
-access to every page just to inspect the current tab.
+You can verify content in two ways:
+
+- select text, open the popup, and choose **Verify selected text**;
+- right-click selected text and choose **Verify with DeepGuard**.
+
+For full-page mode, DeepGuard reads at most 12,000 characters from the visible
+`article` / `main` element (falling back to the body) so it can extract a likely
+checkable claim.
+
+## Privacy
+
+Selected-text mode sends only the selected claim, page URL and page title.
+Full-page mode additionally sends a bounded section of visible page text.
+See `PRIVACY.md` and the server `/privacy` page.
+
+## Production
+
+After deployment, set the extension's server URL to your HTTPS DeepGuard origin.
+The backend permits browser-extension origins through its configurable CORS
+origin regex. Before publishing in a browser store, replace/update screenshots,
+review the store disclosure in `STORE_LISTING.md`, and use your final public
+privacy-policy URL.

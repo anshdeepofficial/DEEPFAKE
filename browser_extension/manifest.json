@@ -1,13 +1,20 @@
 {
   "manifest_version": 3,
   "name": "DeepGuard Verify",
-  "version": "1.0.0",
-  "description": "Verify selected claims on the current page with DeepGuard and inspect supporting evidence.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "version": "1.1.0",
+  "description": "Verify selected claims with source-backed evidence from your DeepGuard server.",
+  "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*"],
-  "optional_host_permissions": ["https://*/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "DeepGuard Verify",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon-128.png"
+  },
+  "icons": {
+    "128": "icons/icon-128.png"
   }
 }

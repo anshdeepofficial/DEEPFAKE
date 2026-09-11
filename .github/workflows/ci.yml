@@ -12,7 +12,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,9 +22,13 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
-      - name: Run tests
-        run: pytest tests/ -q
+        run: pip install -r requirements-dev.txt
+      - name: Validate manifests and Python syntax
+        run: |
+          python -m json.tool browser_extension/manifest.json >/dev/null
+          python -m compileall -q app scripts tests
+      - name: Run tests with coverage
+        run: pytest tests/ -q --cov=app --cov-report=term-missing
       - name: Import and health smoke test
         run: |
           python - <<'PY'
@@ -36,7 +40,13 @@ jobs:
               async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                   r = await client.get("/api/health")
                   assert r.status_code == 200
-                  assert r.json()["status"] == "ok"
+                  body = r.json()
+                  assert body["status"] == "ok"
+                  assert body["version"] == "1.2.0"
+
+                  c = await client.get("/api/capabilities")
+                  assert c.status_code == 200
+                  assert c.json()["version"] == "1.2.0"
 
           asyncio.run(main())
           PY

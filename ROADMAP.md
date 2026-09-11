@@ -1,79 +1,114 @@
 # DeepGuard Roadmap
 
-## 1. Stable product foundation — implemented in v1.1
+## Implemented by v1.2
 
-- FastAPI health/readiness endpoint
+### Product / deployment foundation
+- FastAPI health and capabilities endpoints
 - streamed upload-size enforcement
-- in-process rate limiting
-- configurable CORS
-- corrected PWA root scope/offline fallback handling
-- Docker health check and dynamic `$PORT`
-- Render Blueprint
-- GitHub Actions CI
-- Chromium Manifest V3 verification extension
-- live public-web claim evidence endpoint with source links
+- magic/signature validation instead of MIME-only trust
+- image decompression/pixel limit
+- bounded audio duration
+- bounded video duration, sample count and frame size
+- CPU detector work moved off the async event loop
+- bounded concurrent heavy analyses
+- request IDs, rate limiting and security headers
+- configurable CORS + browser-extension origin support
+- optional trusted-host and HSTS controls
+- Docker + Render Blueprint
+- privacy and terms pages
+- PWA shell caching without fake offline analysis
+- dev/prod dependency split
+- tests + coverage CI
+- CodeQL
+- Dependabot
+- benchmark evaluation CLI
 
-## 2. Real image detector
+### Claim verification
+- selected claim or bounded page claim extraction
+- live public-web evidence retrieval
+- independent-domain counting
+- origin article excluded as independent corroboration
+- support / contradiction / mixed / inconclusive states
+- Unicode-aware query terms
+- claim-kind classification
+- verification questions for statements/promises/outcomes
+- optional Google Fact Check Tools provider
+- official/fact-check/general source typing
+- evidence links shown in website and extension
 
-Add a model adapter so DeepGuard can run a benchmarked pretrained image deepfake
-classifier (preferably ONNX for portable CPU inference). Keep ELA/frequency/noise
-signals as explainability, not as the primary probability. Evaluate on multiple
-real-camera and generated-image datasets, plus re-compressed social-media images.
+### Browser extension
+- Chromium Manifest V3
+- selected-text verification
+- bounded full-page claim extraction
+- right-click “Verify with DeepGuard”
+- server permission requested only for configured origin
+- server health check before saving
+- selected-text privacy improvement (no full article body)
+- privacy/store-listing documentation
+- packaged icon entry
 
-## 3. Real video detector + event provenance
+### Media provenance foundation
+- SHA-256 fingerprints for uploaded media
+- perceptual image hash
+- image dimensions/format/EXIF-count metadata
+- video duration/resolution/sample metadata
+- outputs explicitly marked uncalibrated when heuristic
 
-- face-track extraction instead of only full-frame sampling
-- temporal deepfake model
-- key-frame generation
-- perceptual hashes
-- optional reverse-image/video-search provider adapters
-- event date/location/entity extraction
-- compare earliest-known sources and independent reporting
-- return `synthetic-risk` and `context/provenance-risk` as separate results
+### Trained-model integration foundation
+- opt-in external model gateway for image/audio/video
+- stable multipart input / score-output contract
+- media is never forwarded unless operator explicitly enables it
+- model integration and benchmark requirements documented
 
-This matters for flood/war/disaster videos: a real old video reused with a false
-caption is misinformation even when no pixels were AI-generated.
+## Remaining production intelligence
 
-## 4. Real audio anti-spoofing
+These items require external weights, datasets, services or accounts and should
+not be simulated.
 
-Add a trained anti-spoof / synthetic-speech model and benchmark it across voice
-cloning, TTS, codecs, phone recordings, background noise and multiple languages.
-MFCC/pitch/spectral heuristics stay as secondary evidence.
+### 1. Benchmarked trained media model pack
+Deploy and validate production-grade:
+- image synthetic/deepfake classifier
+- audio anti-spoof / cloned-voice classifier
+- temporal video deepfake classifier
 
-## 5. Strong claim verification
+For each model, document licence, weight checksum, preprocessing, datasets,
+threshold calibration, false-positive rate and failure modes. Connect them using
+`MODEL_INTEGRATION.md`.
 
-The v1.1 verifier uses public search-result evidence and lightweight relevance /
-stance rules. Upgrade it behind provider interfaces:
+### 2. Real provenance / reverse-search provider
+For viral flood/war/disaster media, add a licensed or otherwise reliable provider
+that can perform:
+- reverse image / video-keyframe matching
+- earliest-known source search
+- canonical/source-chain grouping
+- date/location/event matching
 
-1. licensed search provider(s) for dependable web retrieval
-2. article extraction and canonical URL de-duplication
-3. publication date and source relationship detection
-4. entity/date/number-aware claim decomposition
-5. optional LLM/NLI model for source-grounded entailment/contradiction
-6. citation-level answer generation where every conclusion links to evidence
-7. confidence calibration and an explicit `INSUFFICIENT_EVIDENCE` state
+Return synthetic-media risk separately from context/provenance risk.
 
-The system must never turn absence of search results into proof that a claim is
-false.
+### 3. Reproducible production benchmarks
+Acquire appropriate labelled datasets and use `scripts/evaluate_detector.py`
+(or model-specific evaluation code) to publish:
+- precision / recall / F1
+- false-positive rate
+- ROC/PR curves where applicable
+- codec/social-media robustness
+- unseen-generator/generalisation tests
 
-## 6. Browser extension product
+### 4. Higher-end claim reasoning
+After dependable retrieval is configured:
+- canonical article extraction and publisher relationship detection
+- publication-date timeline construction
+- primary-source transcript/document matching
+- source-grounded NLI/LLM entailment with citations
+- promise → official notification → effective date → observed outcome timeline
 
-- current page / selected text verification (v1.1 base exists)
-- side-panel experience for longer investigations
-- claim-by-claim article scan
-- highlight sentences with evidence status
-- one-click open-source comparison
-- optional image/video capture from the current page for media analysis
-- Chrome Web Store privacy disclosure and minimal permissions review
+Absence of search results must continue to mean `INCONCLUSIVE`, never “false”.
 
-## 7. Production hardening
+## Account/operator steps
 
-- Redis-backed distributed rate limiting when scaling to multiple workers
-- queued video jobs for long media
-- content-type magic-byte validation
-- request IDs and structured logs
-- metrics/alerts
-- abuse controls
-- retention policy and automatic temporary-file cleanup tests
-- domain-specific CORS and trusted-host configuration
-- reproducible benchmark reports in CI/releases
+- deploy the Render Blueprint (or another production host)
+- optionally set `GOOGLE_FACT_CHECK_API_KEY`
+- configure custom domain/DNS if desired
+- configure exact CORS/trusted hosts after the final domain is known
+- publish the extension through the browser-store account when ready
+- configure external trained-model endpoints when the model pack is deployed

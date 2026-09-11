@@ -12,7 +12,7 @@
       <div class="mark">DG</div>
       <div>
         <h1>DeepGuard Verify</h1>
-        <p>Check selected claims against live web evidence.</p>
+        <p>Check claims against source-backed evidence.</p>
       </div>
     </header>
 
@@ -38,9 +38,14 @@
       </div>
       <p id="claim" class="claim"></p>
       <div id="counts" class="counts"></div>
+      <div id="meta" class="meta"></div>
+      <div id="questions" class="questions"></div>
       <div id="evidence" class="evidence"></div>
-      <p class="fineprint">DeepGuard shows evidence assistance, not legal proof. Open the sources before relying on a verdict.</p>
+      <p id="warnings" class="fineprint"></p>
+      <p class="fineprint">Evidence strength is not a mathematical probability of truth. Open the sources before relying on a verdict.</p>
     </section>
+
+    <footer><button id="open-privacy" class="linkbtn">Privacy</button><span>·</span><button id="open-site" class="linkbtn">Open DeepGuard</button></footer>
   </main>
   <script src="popup.js"></script>
 </body>

@@ -13,7 +13,25 @@ services:
         value: "1"
       - key: DEEPGUARD_MAX_UPLOAD_MB
         value: "50"
+      - key: DEEPGUARD_MAX_IMAGE_MEGAPIXELS
+        value: "25"
+      - key: DEEPGUARD_MAX_AUDIO_SECONDS
+        value: "60"
+      - key: DEEPGUARD_MAX_VIDEO_SECONDS
+        value: "60"
+      - key: DEEPGUARD_MAX_VIDEO_SAMPLES
+        value: "40"
+      - key: DEEPGUARD_MAX_VIDEO_DIMENSION
+        value: "720"
+      - key: DEEPGUARD_MAX_CONCURRENT_ANALYSES
+        value: "2"
       - key: DEEPGUARD_RATE_LIMIT_PER_MIN
         value: "30"
       - key: DEEPGUARD_SEARCH_TIMEOUT
         value: "8"
+      - key: DEEPGUARD_TRUST_PROXY
+        value: "1"
+      - key: DEEPGUARD_HTTPS_ONLY
+        value: "1"
+      - key: DEEPGUARD_ENABLE_EXTERNAL_MODELS
+        value: "0"

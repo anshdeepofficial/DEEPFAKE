@@ -1,20 +1,14 @@
 """
-Image Deepfake Detector
-=======================
-Techniques used
----------------
-1. Error Level Analysis (ELA) – detects JPEG re-compression inconsistencies
-   introduced by splicing or GAN post-processing.
-2. DCT Frequency Fingerprint – GAN-generated faces exhibit a characteristic
-   drop in high-frequency components (the "GAN frequency fingerprint").
-3. Median-filter Noise Residual – manipulated regions differ statistically
-   from authentic sensor noise.
-4. Facial Region Consistency – colour / brightness variance inside the face
-   bounding box relative to the surrounding background.
-All features are combined into a single composite score in [0, 1].
+Image forensic signal detector.
+
+Built-in signals are lightweight heuristics (ELA, DCT/frequency energy, noise
+residuals and face/background luminance consistency). They are useful for
+triage, but they are not a trained modern deepfake classifier and should not be
+treated as a calibrated probability of authenticity.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 from typing import Tuple
@@ -23,42 +17,48 @@ import cv2
 import numpy as np
 from PIL import Image, ImageChops, ImageEnhance
 
-from app.utils.helpers import DetectionResult, clamp, label_from_score
+from app.utils.helpers import (
+    DetectionResult,
+    class_confidence_from_score,
+    clamp,
+    label_from_score,
+)
 
 logger = logging.getLogger(__name__)
 
-# ── thresholds / weights ──────────────────────────────────────────────────────
-_ELA_HIGH_THRESH = 15.0      # mean ELA intensity → suspicious if > threshold
 _ELA_WEIGHT = 0.35
 _FREQ_WEIGHT = 0.30
 _NOISE_WEIGHT = 0.20
 _FACE_WEIGHT = 0.15
-_JPEG_QUALITY = 90           # re-save quality for ELA
+_JPEG_QUALITY = 90
 
 
 class ImageDetector:
-    """Stateless image deepfake analyser."""
+    """Stateless lightweight image forensic analyser."""
 
-    # Haar cascade bundled with OpenCV – no extra download required.
     _face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
     )
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
     def analyze(self, image_bytes: bytes) -> DetectionResult:
-        """Analyse *image_bytes* and return a :class:`DetectionResult`."""
         try:
-            pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            with Image.open(io.BytesIO(image_bytes)) as source:
+                source.load()
+                original_format = (source.format or "unknown").upper()
+                exif_count = len(source.getexif())
+                pil_img = source.convert("RGB")
         except Exception as exc:
             logger.error("Cannot open image: %s", exc)
             return DetectionResult(
-                label="ERROR", confidence=0.0, score=0.0,
-                flags=["Could not decode image"]
+                label="ERROR",
+                confidence=0.0,
+                score=0.0,
+                flags=["Could not decode image"],
+                limitations=["No forensic conclusion was produced."],
             )
 
         cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        height, width = cv_img.shape[:2]
 
         ela_score, ela_detail = self._ela_score(pil_img)
         freq_score, freq_detail = self._frequency_score(cv_img)
@@ -66,28 +66,28 @@ class ImageDetector:
         face_score, face_detail = self._face_consistency_score(cv_img)
 
         composite = clamp(
-            ela_score   * _ELA_WEIGHT
-            + freq_score  * _FREQ_WEIGHT
+            ela_score * _ELA_WEIGHT
+            + freq_score * _FREQ_WEIGHT
             + noise_score * _NOISE_WEIGHT
-            + face_score  * _FACE_WEIGHT
+            + face_score * _FACE_WEIGHT
         )
 
         flags: list[str] = []
         if ela_score > 0.6:
-            flags.append("High ELA variance – possible splicing or re-encoding")
+            flags.append("High recompression variance; editing or repeated encoding may be present")
         if freq_score > 0.6:
-            flags.append("Anomalous frequency spectrum – GAN fingerprint detected")
+            flags.append("Low high-frequency energy; this can occur in synthetic or heavily processed images")
         if noise_score > 0.6:
-            flags.append("Inconsistent sensor noise pattern")
+            flags.append("Noise residual is unusually inconsistent")
         if face_score > 0.6:
-            flags.append("Facial region colour/lighting inconsistency")
+            flags.append("Face/background luminance differs strongly")
 
         label = label_from_score(composite)
-        confidence = composite if label == "FAKE" else (1.0 - composite)
+        confidence = class_confidence_from_score(composite)
 
         return DetectionResult(
             label=label,
-            confidence=clamp(confidence),
+            confidence=confidence,
             score=composite,
             details={
                 "ela": ela_detail,
@@ -96,91 +96,78 @@ class ImageDetector:
                 "face_consistency": face_detail,
             },
             flags=flags,
+            method="image_heuristic_forensics_v2",
+            calibrated=False,
+            meta={
+                "width": width,
+                "height": height,
+                "megapixels": round((width * height) / 1_000_000, 3),
+                "format": original_format,
+                "exif_tag_count": exif_count,
+                "sha256": hashlib.sha256(image_bytes).hexdigest(),
+                "perceptual_hash": self._perceptual_hash(cv_img),
+            },
+            limitations=[
+                "Built-in image scoring uses forensic heuristics, not a trained deepfake model.",
+                "A real image can still be used with a false caption, date or location.",
+            ],
         )
 
-    # ------------------------------------------------------------------
-    # Feature extractors
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _perceptual_hash(cv_img: np.ndarray) -> str:
+        """64-bit pHash-like fingerprint for later provenance comparisons."""
+        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+        small = cv2.resize(gray, (32, 32), interpolation=cv2.INTER_AREA).astype(np.float32)
+        dct = cv2.dct(small)
+        low = dct[:8, :8].flatten()
+        median = float(np.median(low[1:])) if len(low) > 1 else 0.0
+        bits = (low > median).astype(np.uint8)
+        value = 0
+        for bit in bits:
+            value = (value << 1) | int(bit)
+        return f"{value:016x}"
+
     @staticmethod
     def _ela_score(pil_img: Image.Image) -> Tuple[float, float]:
-        """
-        Error Level Analysis.
-        Re-save the image at *_JPEG_QUALITY* and compute the absolute
-        pixel-difference.  Returns (normalised_score, mean_ela_value).
-        """
         buffer = io.BytesIO()
         pil_img.save(buffer, format="JPEG", quality=_JPEG_QUALITY)
         buffer.seek(0)
         recompressed = Image.open(buffer).convert("RGB")
-
         ela = ImageChops.difference(pil_img, recompressed)
         ela_arr = np.array(ImageEnhance.Brightness(ela).enhance(20)).astype(float)
         mean_val = float(np.mean(ela_arr))
-
-        # Typical authentic images → mean ≈ 2–8; manipulated → 10–40+
-        score = clamp(mean_val / 40.0)
-        return score, mean_val
+        return clamp(mean_val / 40.0), mean_val
 
     @staticmethod
     def _frequency_score(cv_img: np.ndarray) -> Tuple[float, float]:
-        """
-        GAN fingerprint via DCT energy ratio.
-        Real camera images have roughly 1/f² power spectra; GAN images
-        show a characteristic dip at high spatial frequencies.
-        Returns (normalised_score, high_freq_energy_ratio).
-        """
         gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY).astype(np.float32)
         dct = cv2.dct(gray)
         total_energy = float(np.sum(dct ** 2)) + 1e-9
-
         h, w = dct.shape
-        # High-frequency region: bottom-right quarter
         hf_energy = float(np.sum(dct[h // 2:, w // 2:] ** 2))
         ratio = hf_energy / total_energy
-
-        # Natural images: ratio ≈ 0.02–0.12; GAN images: < 0.02
-        # Lower ratio → more suspicious
-        score = clamp(1.0 - (ratio / 0.12))
-        return score, ratio
+        return clamp(1.0 - (ratio / 0.12)), ratio
 
     @staticmethod
     def _noise_score(cv_img: np.ndarray) -> Tuple[float, float]:
-        """
-        Median-filter residual noise analysis.
-        Authentic images have spatially-uniform noise; edited regions show
-        discontinuities in the residual map.
-        Returns (normalised_score, residual_std).
-        """
         gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY).astype(np.float32)
         blurred = cv2.medianBlur(gray.astype(np.uint8), 3).astype(np.float32)
         residual = np.abs(gray - blurred)
-
         std_val = float(np.std(residual))
-        # High std → inconsistent noise (manipulated)
-        score = clamp(std_val / 25.0)
-        return score, std_val
+        return clamp(std_val / 25.0), std_val
 
     def _face_consistency_score(self, cv_img: np.ndarray) -> Tuple[float, float]:
-        """
-        Compare mean luminance / colour inside face bounding box vs background.
-        Large discrepancy suggests the face was composited onto a different image.
-        Returns (normalised_score, luminance_delta).
-        """
         gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
         faces = self._face_cascade.detectMultiScale(
             gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
         )
-
         if len(faces) == 0:
-            # No face detected – neutral score
             return 0.3, 0.0
 
-        # Use the largest detected face
         x, y, fw, fh = max(faces, key=lambda r: r[2] * r[3])
-        face_region = cv_img[y: y + fh, x: x + fw]
-
+        face_region = cv_img[y:y + fh, x:x + fw]
         mask = np.ones(cv_img.shape[:2], dtype=bool)
-        mask[y: y + fh, x: x + fw] = False
+        mask[y:y + fh, x:x + fw] = False
         background = cv_img[mask]
 
         face_lum = float(np.mean(cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)))
@@ -189,7 +176,5 @@ class ImageDetector:
         bg_lum = float(np.mean(cv2.cvtColor(
             background.reshape(-1, 1, 3), cv2.COLOR_BGR2GRAY
         )))
-
         delta = abs(face_lum - bg_lum)
-        score = clamp(delta / 80.0)
-        return score, delta
+        return clamp(delta / 80.0), delta

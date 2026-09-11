@@ -2,68 +2,85 @@
 
 # 🛡️ DeepGuard
 
-**Multimodal synthetic-media analysis + live web-evidence verification.**
+**Media forensics + source-backed claim verification.**
 
 </div>
 
-DeepGuard is an open-source research platform for investigating suspicious images,
-video, audio and text. Version 1.1 also includes a browser-extension workflow that
-can pick a claim from the current webpage, search for independent public-web
-evidence, and return the supporting/contradicting sources for human review.
+DeepGuard is an open-source research platform for investigating suspicious
+images, video, audio and factual claims. It combines bounded local forensic
+signals with a live evidence-verification workflow and a browser extension.
 
-> **Important:** DeepGuard is an evidence-assistance and research tool. Its current
-> media detectors use forensic heuristics and are **not** a calibrated production
-> deepfake model. A result is not legal proof and should not be the sole basis for
-> safety, disciplinary, financial or legal decisions.
+> **Important:** the built-in image/audio/video detectors are heuristic forensic
+> signals, not calibrated production deepfake models. DeepGuard must not be used
+> as the sole basis for legal, disciplinary, financial or safety-critical action.
 
-## What works today
+## Current v1.2 status
 
-| Input | Current analysis |
+| Area | What works now |
 | --- | --- |
-| Image | ELA, DCT/frequency patterns, noise residuals, face consistency |
-| Video | Sampled-frame analysis, optical-flow consistency, face/eye signals |
-| Audio | MFCC, spectral flatness, pitch consistency and silence patterns |
-| Text | Writing-risk indicators such as clickbait, emotion and structure |
-| Web claim | Live public-web search, relevance scoring, source diversity and evidence links |
-
-The text detector and web claim verifier are deliberately separate: writing style
-cannot prove whether a factual statement is true.
+| Image | ELA, frequency energy, noise residuals, face consistency, SHA-256, pHash, EXIF-count metadata |
+| Video | Bounded/downscaled frame analysis, optical-flow consistency, face/eye signals, duration/sample limits |
+| Audio | Bounded MFCC, spectral flatness, pitch and silence analysis |
+| Text | Writing-style risk signals only; factual truth is handled separately |
+| Claims | Live web evidence, optional Google Fact Check Tools lookup, source typing, support/contradiction signals, claim decomposition |
+| Extension | Selected-text verification, full-page claim extraction, right-click context-menu verification, configurable server health check |
+| Production | Rate limits, request IDs, security headers, upload signature checks, concurrency limits, CI, CodeQL, Dependabot, Render Blueprint |
 
 ## Browser extension
 
-`browser_extension/` contains a Chromium Manifest V3 extension called **DeepGuard
-Verify**. When the user clicks it, the extension uses temporary `activeTab` access
-to read either the selected sentence or a bounded amount of visible page text.
-It then calls `/api/verify/claim` and displays the evidence sources.
+`browser_extension/` contains **DeepGuard Verify**, a Chromium Manifest V3
+extension.
 
-See [`browser_extension/README.md`](browser_extension/README.md) for local loading
-instructions.
+- Select text and click **Verify selected text**.
+- Or right-click selected text and choose **Verify with DeepGuard**.
+- Full-page mode reads a bounded visible article/main section and asks the server
+  to extract a likely checkable claim.
+- Selected-text mode does not send the full page body.
+
+See:
+
+- [`browser_extension/README.md`](browser_extension/README.md)
+- [`browser_extension/PRIVACY.md`](browser_extension/PRIVACY.md)
+- [`browser_extension/STORE_LISTING.md`](browser_extension/STORE_LISTING.md)
 
 ## API
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
-| `/api/health` | GET | Health/readiness check |
-| `/api/detect/image` | POST | Image forensic analysis |
-| `/api/detect/video` | POST | Video forensic analysis |
-| `/api/detect/audio` | POST | Audio forensic analysis |
-| `/api/detect/text` | POST | Text writing-risk analysis |
-| `/api/verify/claim` | POST | Verify a selected factual claim against live web evidence |
+| `/api/health` | GET | Health/readiness and configured providers |
+| `/api/capabilities` | GET | Truthful detector/model capabilities and limits |
+| `/api/detect/image` | POST | Image forensic signals + provenance fingerprints |
+| `/api/detect/video` | POST | Bounded video forensic analysis |
+| `/api/detect/audio` | POST | Bounded audio forensic analysis |
+| `/api/detect/text` | POST | Writing-style risk signals |
+| `/api/verify/claim` | POST | Source-backed factual claim verification |
 | `/api/docs` | GET | Swagger UI |
 
-Example claim request:
+The claim endpoint returns `SUPPORTED`, `DISPUTED`, `MIXED` or `INCONCLUSIVE`
+plus evidence URLs. Its `confidence` field is explicitly named
+`evidence_strength`; it is not a mathematical probability that the claim is true.
 
-```json
-{
-  "claim": "The ministry announced petrol prices will decrease by 5 percent from Monday.",
-  "context_url": "https://example.com/article",
-  "page_title": "Fuel price announcement"
-}
+## Claim verification providers
+
+The zero-key bootstrap provider uses public DuckDuckGo HTML results. If the
+server operator configures:
+
+```text
+GOOGLE_FACT_CHECK_API_KEY=<key>
 ```
 
-The response contains an evidence-oriented verdict (`SUPPORTED`, `DISPUTED`,
-`MIXED`, or `INCONCLUSIVE`) plus the source URLs used. The originating article's
-domain is not allowed to independently corroborate itself.
+DeepGuard also searches Google Fact Check Tools and marks those results
+separately.
+
+The verifier classifies the claim type (for example `attributed_promise`) and
+returns questions such as:
+
+- did the named person actually make the statement?
+- was the promised action formally documented?
+- after the effective date, was it actually implemented?
+
+This supports the product direction where “what was said” and “what later
+happened” are separate verification tasks.
 
 ## Run locally
 
@@ -71,9 +88,15 @@ domain is not allowed to independently corroborate itself.
 git clone https://github.com/anshdeepofficial/DEEPFAKE.git
 cd DEEPFAKE
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+
+# Windows
+.venv\Scripts\activate
+
+# Linux/macOS
+# source .venv/bin/activate
+
+pip install -r requirements-dev.txt
+pytest tests/ -q
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -85,81 +108,110 @@ Open `http://localhost:8000`.
 docker compose up --build
 ```
 
-The container exposes port `8000`, uses one worker by default to reduce memory
-pressure, and has a health check at `/api/health`.
-
 ## Deploy on Render
 
-A `render.yaml` Blueprint is included. Connect this repository to Render and use
-the Blueprint, or create a Python Web Service manually with:
+`render.yaml` is included.
 
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
-- Health check: `/api/health`
+1. Connect this GitHub repository to Render.
+2. Create a Blueprint from the repository.
+3. Deploy.
+4. Confirm `/api/health` returns `"status": "ok"`.
+5. Put the final HTTPS URL into the browser extension and press **Save**.
 
-After deployment, put the HTTPS Render URL into the browser extension and press
-**Save**. The extension requests permission only for that configured HTTPS origin.
+The included config uses one Uvicorn worker and bounded media analysis so small
+instances are less likely to be exhausted. Heavy production trained models
+should normally run as separate model services.
 
-## Configuration
+## Important configuration
 
-| Environment variable | Default | Meaning |
-| --- | --- | --- |
-| `DEEPGUARD_MAX_UPLOAD_MB` | `50` | Maximum uploaded media size |
-| `DEEPGUARD_RATE_LIMIT_PER_MIN` | `30` | Per-client API requests per minute |
-| `DEEPGUARD_SEARCH_TIMEOUT` | `8` | Public-web search timeout in seconds |
-| `DEEPGUARD_CORS_ORIGINS` | local URLs | Extra browser origins allowed to call the API |
-| `DEEPGUARD_LOG_LEVEL` | `INFO` | Python logging level |
-| `WEB_CONCURRENCY` | `1` | Docker Uvicorn worker count |
+| Variable | Default | Meaning |
+| --- | ---: | --- |
+| `DEEPGUARD_MAX_UPLOAD_MB` | `50` | Max uploaded file size |
+| `DEEPGUARD_MAX_IMAGE_MEGAPIXELS` | `25` | Image decompression/pixel limit |
+| `DEEPGUARD_MAX_AUDIO_SECONDS` | `60` | Max audio analysed |
+| `DEEPGUARD_MAX_VIDEO_SECONDS` | `60` | Max video window analysed |
+| `DEEPGUARD_MAX_VIDEO_SAMPLES` | `40` | Max sampled frames |
+| `DEEPGUARD_MAX_VIDEO_DIMENSION` | `720` | Max sampled-frame dimension |
+| `DEEPGUARD_MAX_CONCURRENT_ANALYSES` | `2` | Heavy media analyses in parallel |
+| `DEEPGUARD_RATE_LIMIT_PER_MIN` | `30` | Per-client API requests |
+| `DEEPGUARD_SEARCH_TIMEOUT` | `8` | Evidence-provider timeout |
+| `DEEPGUARD_CORS_ORIGINS` | local URLs | Explicit web origins |
+| `DEEPGUARD_CORS_ORIGIN_REGEX` | extension origins | Chrome/Firefox extension CORS |
+| `DEEPGUARD_TRUSTED_HOSTS` | `*` | Optional trusted-host restriction |
+| `DEEPGUARD_TRUST_PROXY` | `0` | Trust proxy client-IP header |
+| `DEEPGUARD_HTTPS_ONLY` | `0` | Add HSTS header |
+| `GOOGLE_FACT_CHECK_API_KEY` | empty | Optional Fact Check Tools integration |
+
+## Optional trained model services
+
+DeepGuard now has a stable external model gateway. It is disabled by default and
+does not forward uploaded media unless explicitly enabled.
+
+See [`MODEL_INTEGRATION.md`](MODEL_INTEGRATION.md).
+
+This lets image/audio/video production models be deployed independently and
+connected later without rewriting the website, extension or public detection
+API.
+
+## Evaluation
+
+Unit tests test software behaviour, not detection accuracy.
+
+Use [`scripts/evaluate_detector.py`](scripts/evaluate_detector.py) with a local
+labelled `real/` + `fake/` dataset to calculate accuracy, precision, recall, F1,
+specificity and a confusion matrix.
+
+See [`EVALUATION.md`](EVALUATION.md).
+
+## Privacy and responsible use
+
+- `/privacy` documents default data flow and retention.
+- `/terms` documents responsible-use limits.
+- Media upload signatures are checked instead of trusting MIME headers alone.
+- Image pixel count is bounded to reduce decompression-bomb risk.
+- Audio/video compute is bounded.
+- CPU-heavy detectors run off the FastAPI event loop.
+- API results are marked uncalibrated where appropriate.
+- Claim-search failure never becomes proof that a claim is false.
+- External model forwarding is opt-in only.
 
 ## PWA
 
-The existing Progressive Web App remains available. DeepGuard now serves the
-service worker with the root-scope permission header and provides a root
-`/offline.html` fallback, fixing the previous scope/fallback mismatch.
+The UI shell can be cached for offline viewing. Analysis is never queued or
+fabricated offline: media analysis and claim verification require a reachable
+DeepGuard backend.
 
-Offline mode only covers the UI shell. Detection and live claim verification
-still require the DeepGuard backend to be running; web verification also requires
-outbound internet access from that backend.
-
-## Tests and CI
+## Development / security
 
 ```bash
-pytest tests/ -q
+pip install -r requirements-dev.txt
+pytest tests/ -q --cov=app
 ```
 
-GitHub Actions runs the complete test suite plus an application import/health
-smoke test on every push to `main` and on pull requests.
+GitHub Actions runs syntax/manifest validation, tests, coverage and health smoke
+checks. CodeQL and Dependabot are also configured.
 
-## Security / privacy notes
+See [`SECURITY.md`](SECURITY.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-- Upload size is enforced while reading the stream instead of only after the full
-  file is accepted into memory.
-- API calls are rate limited in-process to reduce accidental/anonymous abuse.
-- Media is analyzed by your DeepGuard server; core detectors do not forward the
-  uploaded media to third-party AI services.
-- Claim verification sends the claim text to a public search provider to find
-  evidence. Do not use it for confidential claims without understanding that.
-- Search failure returns `SEARCH_UNAVAILABLE`; DeepGuard does not fabricate
-  evidence when retrieval fails.
+## What is still genuinely external
 
-## Current limitation and model roadmap
+The repository is prepared for these, but they require resources that should not
+be faked or silently bundled:
 
-The current image/audio/video outputs are heuristic forensic indicators. The next
-major model phase is to add benchmarked pretrained detectors behind stable model
-adapters, evaluate them on real/AI datasets, calibrate probabilities, and combine
-them with the existing explainable forensic signals. For real-world flood/event
-videos and images, a second provenance/context layer is also needed: key-frame
-extraction, reverse-search/provider integration, date/location checks, source
-history, and cross-source corroboration.
+1. benchmarked production image/audio/video trained models and their weights;
+2. labelled benchmark datasets for reproducible accuracy/calibration reports;
+3. reliable licensed reverse-image/video search or provenance provider for
+   earliest-source/date/location matching;
+4. final hosting/domain and browser-store accounts.
 
-See [`ROADMAP.md`](ROADMAP.md) for the planned architecture.
+See [`ROADMAP.md`](ROADMAP.md).
 
 ## Research paper
 
-`DeepGuard_Research_Paper.docx` is included as the original project research
-artifact. Treat any accuracy or capability claims in documentation as research
-claims unless they are backed by a reproducible benchmark in this repository.
+`DeepGuard_Research_Paper.docx` is the original research artifact and predates
+some v1.2 production-hardening/extension work. Treat any accuracy claim as a
+research claim unless it is backed by a reproducible benchmark in this repo.
 
 ## License
 
-MIT License — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
